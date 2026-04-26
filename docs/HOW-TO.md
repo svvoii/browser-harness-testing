@@ -3,9 +3,18 @@
 ## Prerequisites
 
 1. **Chrome running with remote debugging**
-   - macOS: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9222`
-   - Linux: `google-chrome --remote-debugging-port=9222`
-   - Windows: `"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222`
+   - **macOS:** Requires `--user-data-dir` flag (Chrome refuses debug mode without a separate profile directory):
+
+     ```bash
+     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+       --remote-debugging-port=9222 \
+       --no-first-run \
+       --user-data-dir=/tmp/chrome-debug &
+     ```
+
+     This creates a temporary debug profile at `/tmp/chrome-debug`. Your normal Chrome profile is untouched.
+   - **Linux:** `google-chrome --remote-debugging-port=9222 --no-first-run --user-data-dir=/tmp/chrome-debug &`
+   - **Windows:** `"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --no-first-run --user-data-dir=%TEMP%\chrome-debug"`
 
 2. **browser-harness installed locally** (parent project)
    - Assumed at: `/home/molt/projects/browser-harness`
@@ -96,9 +105,12 @@ python -m harness.runner tests/test_my_flow.py
 
 1. **Get a SAP Build trial** at [sap.com](https://www.sap.com) → SAP Build → try for free
 
-2. **Start Chrome** with remote debugging:
+2. **Start Chrome** with remote debugging (requires `--user-data-dir`):
    ```bash
-   google-chrome --remote-debugging-port=9222
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+     --remote-debugging-port=9222 \
+     --no-first-run \
+     --user-data-dir=/tmp/chrome-debug &
    ```
 
 3. **Navigate to your SAP Build app** in the Chrome window that opens
