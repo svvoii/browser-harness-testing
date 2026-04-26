@@ -2,57 +2,72 @@
 
 ## Prerequisites
 
-1. **Chrome running with remote debugging**
-   - **macOS:** Requires `--user-data-dir` flag (Chrome refuses debug mode without a separate profile directory):
+### Chrome with Remote Debugging
 
-     ```bash
-     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-       --remote-debugging-port=9222 \
-       --no-first-run \
-       --user-data-dir=/tmp/chrome-debug &
-     ```
+**macOS:**
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --remote-debugging-port=9222 \
+  --no-first-run \
+  --user-data-dir=/tmp/chrome-debug &
+```
 
-     This creates a temporary debug profile at `/tmp/chrome-debug`. Your normal Chrome profile is untouched.
-   - **Linux:** `google-chrome --remote-debugging-port=9222 --no-first-run --user-data-dir=/tmp/chrome-debug &`
-   - **Windows:** `"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --no-first-run --user-data-dir=%TEMP%\chrome-debug"`
+**Linux:**
+```bash
+google-chrome --remote-debugging-port=9222 --no-first-run --user-data-dir=/tmp/chrome-debug &
+```
 
-2. **browser-harness installed locally** (parent project)
-   - Assumed at: `/home/molt/projects/browser-harness`
-   - If different, adjust `BROWSER_HARNESS_HELPERS_PATH` below
+**Verify Chrome is listening:**
+```bash
+curl http://localhost:9222/json/version
+```
 
 ---
 
-## Step 1: Install Dependencies
+## Step 1: Install Dependencies with uv
 
 ```bash
 cd ~/projects/browser-harness-testing
 
-# Install this package in editable mode (skip deps, we'll install manually)
-pip install -e . --no-deps
+# Create venv and install dependencies
+uv sync
 
-# Install test dependencies
-pip install PyGithub pytest
+# Activate venv
+source .venv/bin/activate
 ```
 
 ---
 
-## Step 2: Set Environment Variables
+## Step 2: Configure Environment (.env)
+
+Create `~/projects/browser-harness-testing/.env`:
 
 ```bash
-# Tell harness where to find the parent browser-harness helpers
-export BROWSER_HARNESS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py
+# === Chrome Connection ===
+# Local: ws://localhost:9222/...
+# Remote (SSH tunnel): ws://localhost:9222/... (from curl http://localhost:9222/json/version)
+BU_CDP_WS=ws://localhost:9222/devtools/browser/YOUR_WEB_SOCKET_ID
 
-# Add browser-harness to Python path so we can import from it
-export PYTHONPATH=/home/molt/projects/browser-harness:$PYTHONPATH
+# === Paths ===
+BROWSER_HARNESS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py
+
+# === GitHub (for CI manager) ===
+# GITHUB_TOKEN=your_token_here
+# GITHUB_REPOSITORY=svvoii/browser-harness-testing
 ```
 
-Add these to your shell profile (~/.zshrc or ~/.bashrc) to make permanent.
+The `.env` file is automatically loaded when you use `uv run` or activate the venv.
+
+**To get the WebSocket URL:** On Mac, run `curl http://localhost:9222/json/version` and copy the `webSocketDebuggerUrl` value.
 
 ---
 
 ## Step 3: Verify Installation
 
 ```bash
+cd ~/projects/browser-harness-testing
+source .venv/bin/activate
+
 python -c "from harness import *; print('harness import OK')"
 python -c "from agent import *; print('agent import OK')"
 ```
@@ -61,28 +76,18 @@ python -c "from agent import *; print('agent import OK')"
 
 ## Step 4: Run Tests
 
-### Run all tests
 ```bash
-BROWSER_HARNESS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py \
-python -m harness.runner tests/
-```
+cd ~/projects/browser-harness-testing
+source .venv/bin/activate
 
-### Run a specific test file
-```bash
-BROWSER_HARNESS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py \
-python -m harness.runner tests/test_example.py
-```
-
-### Run with pytest (if tests are pytest-style)
-```bash
-BROWSER_HARNESS_HELPERS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py pytest tests/
+uv run python -m harness.runner tests/
 ```
 
 ---
 
 ## Writing a Test
 
-Create a file in `tests/` directory:
+Create a file in `tests/`:
 
 ```python
 from harness import *
@@ -96,60 +101,16 @@ def test_my_flow():
 
 Run it:
 ```bash
-python -m harness.runner tests/test_my_flow.py
+uv run python -m harness.runner tests/test_my_flow.py
 ```
 
 ---
 
-## Testing with SAP Build (Trial Account)
+## Remote Browser via SSH Tunnel
 
-1. **Get a SAP Build trial** at [sap.com](https://www.sap.com) → SAP Build → try for free
+If Chrome runs on a different machine (e.g., macOS) than the harness (Pi):
 
-2. **Start Chrome** with remote debugging (requires `--user-data-dir`):
-   ```bash
-   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-     --remote-debugging-port=9222 \
-     --no-first-run \
-     --user-data-dir=/tmp/chrome-debug &
-   ```
-
-3. **Navigate to your SAP Build app** in the Chrome window that opens
-
-4. **Test basic navigation** with browser-harness first:
-   ```bash
-   cd /home/molt/projects/browser-harness
-   browser-harness <<'PY'
-   goto_url("https://your-sap-build-url")
-   wait_for_load()
-   print(page_info())
-   PY
-   ```
-
-5. **Test with browser-harness-testing assertions**:
-   ```bash
-   cd /home/molt/projects/browser-harness-testing
-   BROWSER_HARNESS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py \
-   python <<'PY'
-   from harness import *
-
-   goto_url("https://your-sap-build-url")
-   wait_for_load()
-   assert_visible("body")  # adjust selector for your app
-   print(page_info())
-   PY
-   ```
-
-## Remote Browser (SSH Tunnel Setup)
-
-When Chrome runs on a different machine (e.g., macOS host) than the harness (e.g., Raspberry Pi), connect via SSH tunnel:
-
-**1. On Mac — Start Chrome with remote debugging:**
-```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --remote-debugging-port=9222 \
-  --no-first-run \
-  --user-data-dir=/tmp/chrome-debug &
-```
+**1. On Mac — Start Chrome with debug port** (see Prerequisites above)
 
 **2. On Mac — Enable Remote Login:**
 System Settings → Sharing → Remote Login → ON
@@ -158,32 +119,47 @@ System Settings → Sharing → Remote Login → ON
 ```bash
 ssh -L 9222:localhost:9222 your_mac_username@192.168.1.80
 ```
-(Replace `your_mac_username` with your Mac username and `192.168.1.80` with your Mac's IP)
 
 **4. On Pi — Get WebSocket URL from Mac:**
 ```bash
 curl http://localhost:9222/json/version
 ```
-Copy the `webSocketDebuggerUrl` value (e.g., `ws://localhost:9222/devtools/browser/83be90d2-...`)
+Copy the `webSocketDebuggerUrl` value and update `BU_CDP_WS` in `.env`
 
-**5. On Pi — Set env and run:**
+**5. On Pi — Run tests:**
 ```bash
-export BU_CDP_WS="ws://localhost:9222/devtools/browser/83be90d2-..."
-cd ~/projects/browser-harness
-browser-harness <<'PY'
-goto_url("https://example.com")
-wait_for_load()
-print(page_info())
-PY
+cd ~/projects/browser-harness-testing
+source .venv/bin/activate
+uv run python -m harness.runner tests/
 ```
 
 ---
 
-## Architecture Overview
+## Testing with SAP Build
+
+1. **Get trial:** [sap.com](https://www.sap.com) → SAP Build → try for free
+
+2. **Start Chrome with debug mode** (see Prerequisites)
+
+3. **Update `.env`:**
+   ```bash
+   BU_CDP_WS=ws://localhost:9222/devtools/browser/YOUR_WEB_SOCKET_ID
+   ```
+
+4. **Run a test:**
+   ```bash
+   cd ~/projects/browser-harness-testing
+   source .venv/bin/activate
+   uv run python -m harness.runner tests/
+   ```
+
+---
+
+## Architecture
 
 ```
 browser-harness-testing/
-├── harness/                    # Enhanced layer (your code)
+├── harness/                    # Enhanced layer
 │   ├── assertions.py          # assert_visible, assert_text, etc.
 │   ├── helpers.py             # imports from parent + UI helpers
 │   └── runner.py              # test executor
@@ -194,56 +170,29 @@ browser-harness-testing/
 │   ├── self_healer.py         # failure → fix
 │   └── ci_manager.py          # GitHub API
 │
-└── tests/                      # your test files
-
-Parent dependency:
-└── browser-harness/            # provides base CDP helpers
-    └── helpers.py             # goto_url, click_at_xy, etc.
+├── tests/                      # test files
+├── .env                        # environment variables
+└── pyproject.toml             # uv project config
 ```
 
 ---
 
 ## Troubleshooting
 
-### "Module not found" errors
-- Ensure `PYTHONPATH` includes the browser-harness directory
-- Ensure `BROWSER_HARNESS_HELPERS_PATH` points to the correct helpers.py
-
 ### Chrome connection refused
 - Make sure Chrome is running with `--remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug`
-- If connecting remotely, ensure the SSH tunnel is active: `ssh -L 9222:localhost:9222 user@host`
-- Verify tunnel: from Pi, run `curl http://localhost:9222/json/version` — should return JSON
-
-### Import errors with harness
-```bash
-# Verify path is set correctly
-echo $BROWSER_HARNESS_HELPERS_PATH
-# Should print: /home/molt/projects/browser-harness/helpers.py
-
-# Test direct import
-python -c "import sys; sys.path.insert(0, '/home/molt/projects/browser-harness'); import helpers; print('OK')"
-```
-
-### Tests not running
-```bash
-# Check test files exist
-ls tests/
-
-# Verify runner works
-BROWSER_HARNESS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py \
-python -m harness.runner tests/ -v
-```
+- If using SSH tunnel, verify it's active: `curl http://localhost:9222/json/version`
 
 ### "Usage: browser-harness -c ..." error
-The `browser-harness` command requires `-c` flag when running inline code:
+Use `uv run`:
 ```bash
-browser-harness -c "print(page_info())"
-
-# Or use uv run:
 uv run browser-harness <<'PY'
 print(page_info())
 PY
 ```
+
+### .env not loaded
+Make sure you're using `uv run` or have activated the venv with `source .venv/bin/activate`
 
 ---
 
