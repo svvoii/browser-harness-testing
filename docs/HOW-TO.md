@@ -139,6 +139,44 @@ python -m harness.runner tests/test_my_flow.py
    PY
    ```
 
+## Remote Browser (SSH Tunnel Setup)
+
+When Chrome runs on a different machine (e.g., macOS host) than the harness (e.g., Raspberry Pi), connect via SSH tunnel:
+
+**1. On Mac — Start Chrome with remote debugging:**
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --remote-debugging-port=9222 \
+  --no-first-run \
+  --user-data-dir=/tmp/chrome-debug &
+```
+
+**2. On Mac — Enable Remote Login:**
+System Settings → Sharing → Remote Login → ON
+
+**3. On Pi — Create SSH tunnel:**
+```bash
+ssh -L 9222:localhost:9222 your_mac_username@192.168.1.80
+```
+(Replace `your_mac_username` with your Mac username and `192.168.1.80` with your Mac's IP)
+
+**4. On Pi — Get WebSocket URL from Mac:**
+```bash
+curl http://localhost:9222/json/version
+```
+Copy the `webSocketDebuggerUrl` value (e.g., `ws://localhost:9222/devtools/browser/83be90d2-...`)
+
+**5. On Pi — Set env and run:**
+```bash
+export BU_CDP_WS="ws://localhost:9222/devtools/browser/83be90d2-..."
+cd ~/projects/browser-harness
+browser-harness <<'PY'
+goto_url("https://example.com")
+wait_for_load()
+print(page_info())
+PY
+```
+
 ---
 
 ## Architecture Overview
@@ -172,8 +210,9 @@ Parent dependency:
 - Ensure `BROWSER_HARNESS_HELPERS_PATH` points to the correct helpers.py
 
 ### Chrome connection refused
-- Make sure Chrome is running with `--remote-debugging-port=9222`
-- Visit `chrome://inspect` to verify Chrome is listening
+- Make sure Chrome is running with `--remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug`
+- If connecting remotely, ensure the SSH tunnel is active: `ssh -L 9222:localhost:9222 user@host`
+- Verify tunnel: from Pi, run `curl http://localhost:9222/json/version` — should return JSON
 
 ### Import errors with harness
 ```bash
@@ -193,6 +232,17 @@ ls tests/
 # Verify runner works
 BROWSER_HARNESS_HELPERS_PATH=/home/molt/projects/browser-harness/helpers.py \
 python -m harness.runner tests/ -v
+```
+
+### "Usage: browser-harness -c ..." error
+The `browser-harness` command requires `-c` flag when running inline code:
+```bash
+browser-harness -c "print(page_info())"
+
+# Or use uv run:
+uv run browser-harness <<'PY'
+print(page_info())
+PY
 ```
 
 ---
