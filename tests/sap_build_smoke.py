@@ -44,19 +44,66 @@ def _load_env():
 # ---------------------------------------------------------------------------
 
 def _fill_login(username, password):
-    """Fill and submit SAP login form."""
-    from harness import js
-    from browser_harness.helpers import press_key
+    """Fill and submit SAP login form via direct DOM manipulation.
+
+    Uses document.querySelector('#logOnFormSubmit').click() instead of
+    press_key('Enter') because the SAP Identity Platform form does not
+    respond to Enter key events — it requires the submit button click.
+    """
+    from harness import js, press_key
 
     js(f"""
     (function() {{
       var u = document.querySelector('#j_username');
       var p = document.querySelector('#j_password');
-      if (u) u.value = {repr(username)};
-      if (p) p.value = {repr(password)};
+      if (u) {{
+        u.value = {repr(username)};
+        u.dispatchEvent(new Event('input', {{bubbles: true}}));
+        u.dispatchEvent(new Event('change', {{bubbles: true}}));
+      }}
+      if (p) {{
+        p.value = {repr(password)};
+        p.dispatchEvent(new Event('input', {{bubbles: true}}));
+        p.dispatchEvent(new Event('change', {{bubbles: true}}));
+      }}
     }})()
     """)
-    press_key("Enter")
+    # Click the actual submit button — Enter key does NOT work on this form
+    js("document.querySelector('#logOnFormSubmit').click();")
+
+
+def _dismiss_cookie_consent():
+    """Accept cookie consent banner if visible (Truste/SAP cookie blackbar)."""
+    from harness import js
+
+    result = js("""
+    (function() {
+      var btn = document.querySelector('#truste-consent-button');
+      if (btn && btn.offsetParent !== null) {
+        btn.click();
+        return 'accepted';
+      }
+      var blackbar = document.querySelector('#consent_blackbar');
+      if (blackbar && blackbar.offsetParent !== null) {
+        // Try to find accept button inside
+        var acceptBtn = blackbar.querySelector('button, a[role="button"]');
+        if (acceptBtn) { acceptBtn.click(); return 'accepted-from-blackbar'; }
+      }
+      return 'not-visible';
+    })()
+    """)
+    return result
+
+
+def _dismiss_chrome_save_password():
+    """Dismiss Chrome's native 'Save Password' bubble with Escape.
+
+    Chrome renders this as a native OS-level dialog, not in the DOM.
+    The only reliable dismissal is pressing Escape or clicking the bubble
+    away — both are attempted here.
+    """
+    from harness import press_key
+    press_key("Escape")
 
 
 def _is_logged_in():
@@ -80,7 +127,13 @@ def _need_login():
 # ---------------------------------------------------------------------------
 
 def setup_module():
-    """Ensure logged into SAP Build lobby before any test runs."""
+    """Ensure logged into SAP Build lobby before any test runs.
+
+    Handles:
+      - SAP Identity Platform login (j_username / j_password form)
+      - Cookie consent banner (Truste/SAP blackbar)
+      - Chrome 'Save Password' native bubble
+    """
     from harness import ensure_daemon, goto_url, wait_for_load, js
 
     _load_env()
@@ -94,6 +147,16 @@ def setup_module():
 
     if _need_login():
         raise RuntimeError("Login failed — check credentials in .env")
+
+    # Give the page a moment to settle after OAuth redirect
+    time.sleep(2)
+
+    # Dismiss cookie consent (Truste blackbar / "Accept All" button)
+    _dismiss_cookie_consent()
+    time.sleep(1)
+
+    # Dismiss Chrome 'Save Password' bubble (native OS dialog — Escape key)
+    _dismiss_chrome_save_password()
 
     print(f"\nLogged in. URL: {js('location.href')}")
 
