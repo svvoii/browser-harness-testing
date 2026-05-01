@@ -1,12 +1,10 @@
 """Assertion helpers for UI testing — captures screenshot on failure."""
-import re, sys, time
+
+import re
+import time
 from pathlib import Path
 
-# Import helpers from sibling browser-harness directory
-# browser-harness-testing/ -> projects/ -> browser-harness/
-_BH = Path(__file__).resolve().parents[2] / "browser-harness"
-sys.path.insert(0, str(_BH))
-from helpers import capture_screenshot, js, wait_for_load
+from browser_harness.helpers import capture_screenshot, js, wait_for_load
 
 RESULTS_DIR = Path("test-results")
 
@@ -15,7 +13,7 @@ def _screenshot_path(selector: str) -> Path:
     """Generate screenshot path for a failed assertion."""
     RESULTS_DIR.mkdir(exist_ok=True)
     safe = re.sub(r"[^a-zA-Z0-9]", "_", selector)
-    ts = int(time.time() * 1000)
+    ts   = int(time.time() * 1000)
     return RESULTS_DIR / f"failed_{safe}_{ts}.png"
 
 
@@ -29,8 +27,9 @@ def _page_url() -> str:
 
 def _element_visible(selector: str) -> bool:
     """Check if element is visible via JS."""
-    # offsetParent is null when element is hidden (display:none or visibility:hidden)
-    return js(f"!!(document.querySelector({repr(selector)})?.offsetParent !== null)") is True
+    return js(
+        f"!!(document.querySelector({repr(selector)})?.offsetParent !== null)"
+    ) is True
 
 
 def _count_matching(selector: str) -> int:
@@ -47,7 +46,6 @@ def assert_visible(selector: str, timeout: float = 10) -> None:
             return
         time.sleep(0.2)
 
-    # Failed — capture screenshot
     page_url = _page_url()
     try:
         path = capture_screenshot(str(_screenshot_path(selector)))
@@ -96,9 +94,14 @@ def assert_text(selector: str, expected: str, timeout: float = 10) -> None:
     except Exception as e:
         path = f"<screenshot unavailable: {e}>"
 
-    actual = js(f"document.querySelector({repr(selector)})?.textContent?.trim()") if _count_matching(selector) > 0 else "<element not found>"
+    actual = (
+        js(f"document.querySelector({repr(selector)})?.textContent?.trim()")
+        if _count_matching(selector) > 0
+        else "<element not found>"
+    )
     raise AssertionError(
-        f"Assertion failed: text mismatch. Selector: {selector}. Expected: {expected!r}. Actual: {actual!r}. Page: {page_url}. Screenshot: {path}"
+        f"Assertion failed: text mismatch. Selector: {selector}. "
+        f"Expected: {expected!r}. Actual: {actual!r}. Page: {page_url}. Screenshot: {path}"
     )
 
 
@@ -133,7 +136,9 @@ def assert_attribute(selector: str, attr: str, expected_value: str, timeout: flo
     while time.time() < deadline:
         count = _count_matching(selector)
         if count > 0:
-            actual = js(f"document.querySelector({repr(selector)})?.getAttribute({repr(attr)})")
+            actual = js(
+                f"document.querySelector({repr(selector)})?.getAttribute({repr(attr)})"
+            )
             if actual == expected_value:
                 return
         time.sleep(0.2)
@@ -144,9 +149,15 @@ def assert_attribute(selector: str, attr: str, expected_value: str, timeout: flo
     except Exception as e:
         path = f"<screenshot unavailable: {e}>"
 
-    actual = js(f"document.querySelector({repr(selector)})?.getAttribute({repr(attr)})") if _count_matching(selector) > 0 else "<element not found>"
+    actual = (
+        js(f"document.querySelector({repr(selector)})?.getAttribute({repr(attr)})")
+        if _count_matching(selector) > 0
+        else "<element not found>"
+    )
     raise AssertionError(
-        f"Assertion failed: attribute mismatch. Selector: {selector}. Attribute: {attr}. Expected: {expected_value!r}. Actual: {actual!r}. Page: {page_url}. Screenshot: {path}"
+        f"Assertion failed: attribute mismatch. Selector: {selector}. "
+        f"Attribute: {attr}. Expected: {expected_value!r}. Actual: {actual!r}. "
+        f"Page: {page_url}. Screenshot: {path}"
     )
 
 
@@ -167,5 +178,6 @@ def assert_element_count(selector: str, count: int, timeout: float = 10) -> None
 
     actual = _count_matching(selector)
     raise AssertionError(
-        f"Assertion failed: element count mismatch. Selector: {selector}. Expected: {count}. Actual: {actual}. Page: {page_url}. Screenshot: {path}"
+        f"Assertion failed: element count mismatch. Selector: {selector}. "
+        f"Expected: {count}. Actual: {actual}. Page: {page_url}. Screenshot: {path}"
     )

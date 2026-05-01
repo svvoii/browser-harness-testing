@@ -1,42 +1,15 @@
-"""Extended browser-harness helpers for UI testing.
+"""UI testing helpers — element discovery, text extraction, visibility checks.
 
-Re-exports base helpers from browser-harness and adds UI-specific helpers
-for element discovery, text extraction, and visibility checking.
+These are the SAP Build / UI-testing-specific layer on top of the core CDP
+helpers from browser_harness.helpers (goto_url, click, js, etc.).
 """
 
-import importlib.util, json, time, os, sys
+import json
+import time
+from browser_harness.helpers import js
 
-# --- Load base helpers directly from browser-harness helpers.py ---
 
-# Detect browser-harness helpers path
-_BH_HELPERS_PATH = os.environ.get(
-    "BROWSER_HARNESS_HELPERS_PATH",
-    "/home/molt/projects/browser-harness/helpers.py",
-)
-_spec = importlib.util.spec_from_file_location("_base_helpers", _BH_HELPERS_PATH)
-_base = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_base)
-
-# Re-exported from browser-harness
-goto_url = _base.goto_url
-click_at_xy = _base.click_at_xy
-capture_screenshot = _base.capture_screenshot
-wait_for_load = _base.wait_for_load
-js = _base.js
-page_info = _base.page_info
-list_tabs = _base.list_tabs
-new_tab = _base.new_tab
-switch_tab = _base.switch_tab
-ensure_real_tab = _base.ensure_real_tab
-type_text = _base.type_text
-press_key = _base.press_key
-scroll = _base.scroll
-upload_file = _base.upload_file
-http_get = _base.http_get
-wait = _base.wait
-
-# --- UI testing helpers ---
-
+# --- UI testing helpers ---------------------------------------------------
 
 def find_element(selector):
     """Find element by selector, return element info or None.

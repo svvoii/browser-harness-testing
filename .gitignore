@@ -1,0 +1,56 @@
+# === Environment & Secrets ===
+.env
+.env.local
+.env.*.local
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyc
+*.egg-info/
+*.egg
+*.whl
+.Python
+build/
+dist/
+
+# === Virtual Environment ===
+.venv/
+venv/
+ENV/
+
+# === uv ===
+.packages/
+
+# === Test & Build Artifacts ===
+test-results/
+*.png
+*.html
+*.json
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# === Agent / Session State ===
+.remember/
+*.log
+
+# === OS ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# === IDE ===
+.idea/
+.vscode/
+*.code-workspace
+
+# === Temporary ===
+tmp/
+temp/
+*.tmp
+
+CLAUDE.md

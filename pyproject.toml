@@ -1,9 +1,10 @@
 [project]
 name = "browser-harness-testing"
 version = "0.1.0"
-description = "AI-driven E2E testing system"
+description = "AI-driven E2E testing system — SAP Build / browser-harness fork"
+requires-python = ">=3.11"
 dependencies = [
-    "browser-harness",
+    "browser-harness @ file://${PROJECT_ROOT}/browser_harness",  # local fork, served as a proper package
     "PyGithub",
 ]
 
@@ -13,3 +14,7 @@ dev = []
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["harness", "agent", "specs", "browser_harness"]

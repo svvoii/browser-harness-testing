@@ -1,6 +1,6 @@
 # Browser Harness Testing
 
-AI-driven E2E testing system built on top of browser-harness.
+AI-driven E2E testing system built on top of `browser_harness` — the CDP WS bridge and helpers that drive Chrome via the Chrome DevTools Protocol.
 
 ## Overview
 
@@ -13,21 +13,29 @@ An intelligent testing agent that:
 ## Architecture
 
 ```
-browser-harness-testing/
-├── agent/               # AI agent modules
-│   ├── app_model.py    # Learned app knowledge
-│   ├── test_author.py  # NL → test file
-│   ├── self_healer.py  # Failure → fix
-│   ├── ci_manager.py   # GitHub API
-│   └── jira_client.py  # JIRA (stub)
+browser-harness-testing/              ← single unified project
+├── browser_harness/                  # CDP WS bridge + helpers (formerly separate repo)
+│   ├── admin.py                      # daemon lifecycle
+│   ├── daemon.py                      # CDP WS ↔ Unix socket bridge
+│   ├── helpers.py                     # CDP client (goto_url, click, js, etc.)
+│   ├── run.py                         # CLI entry point
+│   ├── domain-skills/                 # learned agent skills
+│   └── interaction-skills/            # browser interaction skills
 │
-├── harness/            # Enhanced browser-harness
-│   ├── assertions.py   # UI testing assertions
-│   ├── helpers.py      # Extended helpers
-│   └── runner.py       # Test executor
+├── harness/                          # SAP Build UI testing layer
+│   ├── __init__.py                  # re-exports: CDP helpers + UI helpers + assertions
+│   ├── assertions.py                 # UI testing assertions
+│   ├── helpers.py                    # UI helpers: find_element, wait_for_element, etc.
+│   └── runner.py                     # Test executor with artifact capture
 │
-├── tests/              # Test files (one per flow)
-├── specs/              # App models, page specs
+├── agent/                            # AI agent modules (future)
+│   ├── app_model.py
+│   ├── test_author.py
+│   ├── self_healer.py
+│   └── ci_manager.py
+│
+├── tests/                             # Test files (one per flow)
+├── specs/                             # App models, page specs
 └── .github/workflows/
     └── test-executor.yml
 ```
@@ -35,8 +43,11 @@ browser-harness-testing/
 ## Installation
 
 ```bash
-pip install -e .
+cd ~/projects/browser-harness-testing
+uv sync
 ```
+
+The `browser-harness` CLI is installed automatically as part of the local package.
 
 ## Writing Tests
 
@@ -57,10 +68,17 @@ def test_workorder_creation():
 
 ```bash
 # Run all tests
-python -m harness.runner tests/
+uv run python -m harness.runner tests/
 
 # Run single test file
-python -m harness.runner tests/test_example.py
+uv run python -m harness.runner tests/test_example.py
+
+# Exploratory testing with the browser-harness CLI
+uv run browser-harness <<'PY'
+goto_url("https://example.com")
+wait_for_load()
+print(page_info())
+PY
 ```
 
 ## Assertions
@@ -127,17 +145,26 @@ Results are posted as PR comments. Failed tests open draft PRs with suggested fi
 
 | Variable | Purpose |
 |---|---|
+| `BU_CDP_WS` | Chrome CDP WebSocket URL (default: auto-discovered) |
+| `BU_NAME` | Daemon name (default: default, use `browser-harness-testing` for this project) |
 | `GITHUB_TOKEN` | GitHub API access for PR comments and PRs |
 | `GH_TOKEN` | Alternative to GITHUB_TOKEN |
 | `GITHUB_REPOSITORY` | Owner/repo for CI manager (auto-detected in CI) |
-| `BROWSER_HARNESS_HELPERS_PATH` | Path to browser-harness helpers.py |
 
 ## Project Structure Details
 
-### harness/
+### browser_harness/ (CDP core)
 
+**admin.py** — Daemon lifecycle (ensure_daemon, restart_daemon, run_doctor, run_setup)
+**daemon.py** — CDP WebSocket ↔ Unix socket bridge
+**helpers.py** — CDP client helpers: goto_url, click_at_xy, js, wait, wait_for_load, page_info, list_tabs, new_tab, switch_tab, capture_screenshot, http_get, etc.
+**run.py** — CLI entry point (`browser-harness` command)
+
+### harness/ (UI testing layer)
+
+**__init__.py** — Re-exports everything from both browser_harness and local modules
 **assertions.py** — UI testing assertions with screenshot-on-failure
-**helpers.py** — Extended browser-harness helpers (re-exports + UI-specific)
+**helpers.py** — UI helpers: find_element, wait_for_element, get_element_text, is_element_visible, etc.
 **runner.py** — Test executor with artifact capture
 
 ### agent/
@@ -146,7 +173,6 @@ Results are posted as PR comments. Failed tests open draft PRs with suggested fi
 **ci_manager.py** — GitHub API client (runs, comments, PRs, status checks)
 **test_author.py** — Natural language → test file writer
 **self_healer.py** — Failure analysis → fix generator
-**jira_client.py** — JIRA integration stub (deferred)
 
 ## Extending
 

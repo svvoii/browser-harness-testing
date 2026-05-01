@@ -18,14 +18,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
       - name: Install dependencies
-        run: |
-          pip install -e .
+        run: uv sync
 
       - name: Run tests
-        run: python -m harness.runner tests/
+        run: uv run python -m harness.runner tests/
         env:
-          BROWSER_HARNESS_HELPERS_PATH: /home/molt/projects/browser-harness/helpers.py
+          BU_CDP_WS: ${{ secrets.BU_CDP_WS }}
 
       - name: Upload artifacts on failure
         if: failure()
